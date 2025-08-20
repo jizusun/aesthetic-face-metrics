@@ -1,0 +1,14 @@
+[tools]
+python = "3.13"
+uv = "0.8"
+
+
+[settings]
+python.uv_venv_auto = true
+
+[env]
+_.python.venv = { path = ".venv", create = true }
+
+
+[hooks]
+postinstall = ["uv sync"]
