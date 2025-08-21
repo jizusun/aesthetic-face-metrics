@@ -81,9 +81,14 @@ def calculate_aesthetic_ranges(df):
     ratio_columns = [col for col in df.columns if 'ratio' in col]
     
     for col in size_columns + ratio_columns:
-        median = np.median(df[col])
-        q1, q3 = np.percentile(df[col], [25, 75])
+        col_data = df[col].dropna()
+        if len(col_data) == 0:
+            continue
+        median = np.median(col_data)
+        q1, q3 = np.percentile(col_data, [25, 75])
         iqr = q3 - q1
+        if iqr == 0:
+            continue
         aesthetic_data[col] = {
             'median': median,
             'aesthetic_range': (q1 - 1.5*iqr, q3 + 1.5*iqr)
@@ -93,42 +98,49 @@ def calculate_aesthetic_ranges(df):
     position_columns = [col for col in df.columns if 'x' in col or 'y' in col]
     
     for col in position_columns:
-        kernel = stats.gaussian_kde(df[col])
-        x = np.linspace(df[col].min(), df[col].max(), 100)
-        y = kernel(x)
-        peak = x[y.argmax()]  # 最优位置
-        
-        # 计算85%置信区间作为美学范围
-        cumulative = np.cumsum(y)
-        cumulative /= cumulative.max()
-        lower = x[np.argmax(cumulative >= 0.075)]
-        upper = x[np.argmax(cumulative >= 0.925)]
-        
-        aesthetic_data[col] = {
-            'optimal': peak,
-            'aesthetic_range': (lower, upper)
-        }
+        col_data = df[col].dropna()
+        if len(col_data) == 0:
+            continue
+        try:
+            kernel = stats.gaussian_kde(col_data)
+            x = np.linspace(col_data.min(), col_data.max(), 100)
+            y = kernel(x)
+            peak = x[y.argmax()]  # 最优位置
+            
+            # 计算85%置信区间作为美学范围
+            cumulative = np.cumsum(y)
+            cumulative /= cumulative.max()
+            lower = x[np.argmax(cumulative >= 0.075)]
+            upper = x[np.argmax(cumulative >= 0.925)]
+            
+            aesthetic_data[col] = {
+                'optimal': peak,
+                'aesthetic_range': (lower, upper)
+            }
+        except Exception:
+            continue
     
     return aesthetic_data
 
-def visualize_results(aesthetic_data):
+def visualize_results(df, aesthetic_data):
     """可视化分析结果"""
-    # 尺寸比例可视化
     fig, axs = plt.subplots(3, 1, figsize=(10, 15))
     
     # 示例：眼睛宽高比分布
-    ratios = aesthetic_data['left_eye_ratio']
+    ratios = df['left_eye_ratio']
     axs[0].hist([x for x in ratios if pd.notnull(x)], bins=30)
-    axs[0].axvline(ratios['median'], color='r', linestyle='dashed')
-    axs[0].set_title('眼睛宽高比分布')
+    if 'left_eye_ratio' in aesthetic_data and 'median' in aesthetic_data['left_eye_ratio']:
+        axs[0].axvline(aesthetic_data['left_eye_ratio']['median'], color='r', linestyle='dashed')
+    axs[0].set_title('Left Eye Aspect Ratio Distribution')
     
     # 示例：眼睛位置分布
-    x_data = aesthetic_data['left_eye_x']
-    y_data = aesthetic_data['left_eye_y']
-    
+    x_data = df['left_eye_x']
+    y_data = df['left_eye_y']
     axs[1].scatter(x_data, y_data, alpha=0.5)
-    axs[1].scatter(x_data['optimal'], y_data['optimal'], marker='*', s=200)
-    axs[1].set_title('眼睛位置分布')
+    if ('left_eye_x' in aesthetic_data and 'optimal' in aesthetic_data['left_eye_x'] and
+        'left_eye_y' in aesthetic_data and 'optimal' in aesthetic_data['left_eye_y']):
+        axs[1].scatter(aesthetic_data['left_eye_x']['optimal'], aesthetic_data['left_eye_y']['optimal'], marker='*', s=200)
+    axs[1].set_title('Left Eye Position Distribution')
     
     # 更多可视化...
     plt.tight_layout()
@@ -145,7 +157,7 @@ if __name__ == "__main__":
     aesthetic_ranges = calculate_aesthetic_ranges(portrait_data)
     
     # 步骤3: 可视化结果
-    visualize_results(aesthetic_ranges)
+    visualize_results(portrait_data, aesthetic_ranges)
     
     # 输出最优值和范围
     print("面部美学参数:")
