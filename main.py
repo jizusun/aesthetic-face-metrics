@@ -149,9 +149,7 @@ def visualize_results(df, aesthetic_data):
 # 主流程
 if __name__ == "__main__":
     # 步骤1: 数据采集
-    print('analyze..')
     portrait_data = analyze_portraits("famous_portraits/")
-    print(portrait_data)
     
     # 步骤2: 计算美学参数
     aesthetic_ranges = calculate_aesthetic_ranges(portrait_data)
